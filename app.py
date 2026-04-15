@@ -1,16 +1,15 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, render_template, send_from_directory
 from flask_cors import CORS
+import os
 
-app = Flask(__name__)
-# Habilitamos CORS para que tu React (que correrá en otro puerto) pueda pedirle datos a Flask sin bloqueos de seguridad
-CORS(app) 
+# 1. Le decimos a Flask que su carpeta de vistas y archivos estáticos será 'dist'
+app = Flask(__name__, 
+            static_folder='dist/assets', 
+            template_folder='dist')
 
-# Una ruta básica para comprobar que el servidor funciona
-@app.route('/')
-def home():
-    return "¡El backend en Flask está vivo!"
+CORS(app)
 
-# Este es el endpoint (ruta) que consumirá tu frontend de React
+# --- RUTAS DE LA API (Backend Pecu) ---
 @app.route('/api/test', methods=['GET'])
 def get_data():
     datos = {
@@ -18,9 +17,25 @@ def get_data():
         "status": "success",
         "tecnologia": "Python/Flask"
     }
-    # jsonify convierte nuestro diccionario de Python a un formato JSON que React entiende perfectamente
     return jsonify(datos)
 
+# --- RUTAS DE REACT (Frontend) ---
+
+# 2. Cuando entren a la URL principal, Flask muestra tu frontend
+@app.route('/')
+def serve_react():
+    return render_template('index.html')
+
+# 3. Este "Catch-all" es vital. Permite que tus rutas de React (como /login o /registro-animal) 
+# funcionen correctamente si el usuario recarga la página.
+@app.route('/<path:path>')
+def catch_all(path):
+    # Si están pidiendo un archivo que existe (como un logo o imagen), se lo mandamos
+    if os.path.exists(os.path.join(app.template_folder, path)):
+        return send_from_directory(app.template_folder, path)
+    
+    # Si la ruta no es un archivo ni una ruta de la API, dejamos que React Router se encargue
+    return render_template('index.html')
+
 if __name__ == '__main__':
-    # debug=True hace que el servidor se reinicie automáticamente si guardas cambios en el código
     app.run(debug=True, port=5000)
